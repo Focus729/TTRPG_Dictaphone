@@ -1,3 +1,5 @@
+import { readApiResponse } from './api'
+
 export interface TranscriptionInput { audio: Blob; language: 'ru'|'en'; idempotencyKey: string }
 export interface TranscriptionResult { rawText: string; language: string; blocks: {id:string;index:number;text:string;startMs?:number;endMs?:number}[] }
 export interface TranscriptionProvider { transcribe(input: TranscriptionInput): Promise<TranscriptionResult> }
@@ -17,7 +19,7 @@ export class ServerTranscriptionProvider implements TranscriptionProvider {
     const body=new FormData(); body.append('file',input.audio,`recording.${extension}`); body.append('language',input.language)
     const response=await fetch(this.endpoint,{method:'POST',headers:{'Idempotency-Key':input.idempotencyKey},body})
     if(response.status===429) throw new ProviderError('AI_FREE_QUOTA_EXCEEDED','Бесплатный лимит исчерпан')
-    if(!response.ok) throw new ProviderError('TRANSCRIPTION_FAILED','Не удалось выполнить транскрипцию')
-    return response.json() as Promise<TranscriptionResult>
+    try{return await readApiResponse<TranscriptionResult>(response)}
+    catch(error){throw new ProviderError('TRANSCRIPTION_FAILED',error instanceof Error?error.message:'Не удалось выполнить транскрипцию')}
   }
 }
