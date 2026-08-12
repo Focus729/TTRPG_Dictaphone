@@ -30,15 +30,28 @@ async function api(request, response) {
   }
   if (request.url === '/api/transcribe' && request.method === 'POST') {
     if (!process.env.GROQ_API_KEY) return json(response, 503, { code: 'TRANSCRIPTION_NOT_CONFIGURED' })
+    const incoming = new Request('http://localhost/api/transcribe', {
+      method: 'POST', headers: { 'content-type': request.headers['content-type'] }, body: await readBody(request),
+    })
+    const received = await incoming.formData()
+    const audio = received.get('file') || received.get('audio')
+    if (!(audio instanceof File)) return json(response, 400, { code:'AUDIO_FILE_REQUIRED', message:'Аудиофайл не получен' })
+    const form = new FormData()
+    form.append('file', audio, audio.name || 'recording.webm')
+    form.append('model', process.env.GROQ_TRANSCRIPTION_MODEL || 'whisper-large-v3')
+    form.append('language', String(received.get('language') || 'ru'))
+    form.append('response_format', 'verbose_json')
     const upstream = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method: 'POST',
-      headers: { authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'content-type': request.headers['content-type'] },
-      body: await readBody(request),
+      headers: { authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+      body: form,
     })
     const data = await upstream.json()
     if (upstream.status === 429) return json(response, 429, { code: 'AI_FREE_QUOTA_EXCEEDED' })
     if (!upstream.ok) return json(response, 502, { code: 'TRANSCRIPTION_FAILED', message: data.error?.message })
-    return json(response, 200, data)
+    const rawText = data.text || ''
+    const segments = Array.isArray(data.segments) ? data.segments : []
+    return json(response, 200, { rawText, normalizedText:rawText, language:data.language || 'ru', blocks:segments.map((segment,index)=>({id:`B${String(index+1).padStart(3,'0')}`,index,text:segment.text,startMs:Math.round(segment.start*1000),endMs:Math.round(segment.end*1000)})) })
   }
   if (request.url === '/api/analyze' && request.method === 'POST') {
     if (!process.env.GEMINI_API_KEY) return json(response, 503, { code: 'AI_ANALYSIS_NOT_CONFIGURED' })
