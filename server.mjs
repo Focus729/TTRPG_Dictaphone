@@ -1,6 +1,7 @@
 import { createServer } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
+import { resolveGeminiModel } from './server-config.js'
 
 const port = Number(process.env.PORT || 3000)
 const root = join(process.cwd(), 'dist')
@@ -26,6 +27,7 @@ async function api(request, response) {
       ok: true,
       transcriptionConfigured: Boolean(process.env.GROQ_API_KEY),
       analysisConfigured: Boolean(process.env.GEMINI_API_KEY),
+      analysisModel: resolveGeminiModel(process.env.GEMINI_MODEL),
     })
   }
   if (request.url === '/api/transcribe' && request.method === 'POST') {
@@ -56,7 +58,7 @@ async function api(request, response) {
   if (request.url === '/api/analyze' && request.method === 'POST') {
     if (!process.env.GEMINI_API_KEY) return json(response, 503, { code: 'AI_ANALYSIS_NOT_CONFIGURED' })
     const input = JSON.parse((await readBody(request)).toString())
-    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
+    const model = resolveGeminiModel(process.env.GEMINI_MODEL)
     const prompt = `Ты извлекаешь сведения только из пользовательской транскрипции. Не используй внешние знания и RPG lore. Пустой результат допустим. Не объединяй сомнительные сущности. Верни JSON строго по схеме. Каждый объект должен ссылаться на существующие sourceBlockIds и содержать дословный sourceText. Блоки: ${JSON.stringify(input.blocks || [])}. Текст: ${input.text}`
     const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
@@ -64,7 +66,7 @@ async function api(request, response) {
     })
     const data = await upstream.json()
     if (upstream.status === 429) return json(response, 429, { code:'AI_FREE_QUOTA_EXCEEDED' })
-    if (!upstream.ok) return json(response, 502, { code:'AI_ANALYSIS_FAILED', message:data.error?.message })
+    if (!upstream.ok) return json(response, 502, { code:'AI_ANALYSIS_FAILED', message:data.error?.message, model })
     try { return json(response, 200, JSON.parse(data.candidates[0].content.parts[0].text)) }
     catch { return json(response, 502, { code:'INVALID_AI_RESPONSE' }) }
   }

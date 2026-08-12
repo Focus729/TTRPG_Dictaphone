@@ -36,7 +36,7 @@ cp .env.example .env
 GROQ_API_KEY=ваш_ключ_groq
 GROQ_TRANSCRIPTION_MODEL=whisper-large-v3
 GEMINI_API_KEY=ваш_ключ_gemini
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_MODEL=gemini-2.5-flash
 PORT=3000
 ```
 
@@ -60,7 +60,7 @@ curl http://localhost:3000/api/health
 Ожидается:
 
 ```json
-{"ok":true,"transcriptionConfigured":true,"analysisConfigured":true}
+{"ok":true,"transcriptionConfigured":true,"analysisConfigured":true,"analysisModel":"gemini-2.5-flash"}
 ```
 
 ### Режим разработки
@@ -112,6 +112,7 @@ npm run build
 - **`AUDIO_FILE_REQUIRED`** — сервер не получил multipart-поле с файлом; обновите приложение и service worker, затем перезагрузите страницу.
 - **`unknown file audio`** — это сообщение старой версии клиента, которая отправляла поле `audio` вместо обязательного поля `file`; выполните новую сборку и принудительно обновите страницу.
 - **`AI_ANALYSIS_NOT_CONFIGURED`** — не задан `GEMINI_API_KEY`.
+- **`gemini-2.0-flash is no longer available`** — модель снята с обслуживания. Укажите `GEMINI_MODEL=gemini-2.5-flash` и перезапустите сервер. Сервер также автоматически заменяет старое значение `gemini-2.0-flash` на актуальное.
 - **`AI_FREE_QUOTA_EXCEEDED`** — бесплатная квота провайдера исчерпана; повторите позднее.
 - **Микрофон не открывается** — используйте `localhost`/HTTPS и проверьте разрешения сайта.
 - **Vite возвращает 404 на `/api`** — одновременно запустите `npm start`; proxy настроен на `127.0.0.1:3000`.
