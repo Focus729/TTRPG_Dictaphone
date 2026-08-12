@@ -1,6 +1,6 @@
 {
   "name":"ttrpg-dictaphone","version":"0.1.0","private":true,"type":"module",
-  "scripts":{"dev":"vite --host 0.0.0.0","build":"tsc -b && vite build","test":"vitest run","lint":"eslint ."},
+  "scripts":{"dev":"vite --host 0.0.0.0","build":"tsc -b && vite build","test":"vitest run","lint":"eslint .","start":"node --env-file-if-exists=.env server.mjs","preview":"npm run build && npm start"},
   "dependencies":{"@vitejs/plugin-react":"latest","vite":"latest","typescript":"latest","react":"latest","react-dom":"latest","lucide-react":"latest"},
   "devDependencies":{"@types/react":"latest","@types/react-dom":"latest","vitest":"latest","jsdom":"latest","eslint":"latest","typescript-eslint":"latest","eslint-plugin-react-hooks":"latest","eslint-plugin-react-refresh":"latest"}
 }
