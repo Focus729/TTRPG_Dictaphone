@@ -1,0 +1,13 @@
+export const entityTypes = ['PLAYER_CHARACTER','NPC','LOCATION','ITEM','EVENT','QUEST','FACTION','IMPORTANT_NOTE','SPELL','MONSTER','DEITY','HISTORICAL_EVENT'] as const
+export type EntityType = typeof entityTypes[number]
+export type Role = 'PLAYER' | 'GM'
+export type Visibility = 'CAMPAIGN' | 'PLAYER_PRIVATE' | 'GM_ONLY'
+export type Campaign = { id:string; name:string; description:string; role:Role; audioPolicy:'KEEP_FOREVER'|'DELETE_AFTER_TRANSCRIPT_CONFIRMATION'; createdAt:string }
+export type Fact = { id:string; value:string; visibility:Visibility; origin:'MANUAL'|'AI'|'IMPORT'; sourceSessionId?:string; sourceBlockIds:string[]; confidence?:number }
+export type Entity = { id:string; campaignId:string; name:string; aliases:string[]; type:EntityType; description:string; visibility:Visibility; metadata:Record<string,string>; facts:Fact[]; createdAt:string }
+export type TranscriptBlock = { id:string; index:number; text:string; startMs?:number; endMs?:number }
+export type Proposal = { id:string; name:string; type:EntityType; description:string; sourceText:string; sourceBlockIds:string[]; confidence:number; visibility:Visibility; accepted:boolean }
+export type Session = { id:string; campaignId:string; title:string; date:string; note:string; rawText:string; normalizedText:string; blocks:TranscriptBlock[]; summary:string; recap:string; status:'DRAFT'|'TRANSCRIBED'|'REVIEW'|'COMMITTED'; audioName?:string; proposals:Proposal[]; createdAt:string }
+export type SourceDocument = { id:string; campaignId:string; name:string; text:string; createdAt:string }
+export type Database = { campaigns:Campaign[]; entities:Entity[]; sessions:Session[]; imports:SourceDocument[]; activeCampaignId:string }
+export const emptyDatabase:Database = { campaigns:[],entities:[],sessions:[],imports:[],activeCampaignId:'' }
