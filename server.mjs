@@ -40,6 +40,21 @@ async function api(request, response) {
     if (!upstream.ok) return json(response, 502, { code: 'TRANSCRIPTION_FAILED', message: data.error?.message })
     return json(response, 200, data)
   }
+  if (request.url === '/api/analyze' && request.method === 'POST') {
+    if (!process.env.GEMINI_API_KEY) return json(response, 503, { code: 'AI_ANALYSIS_NOT_CONFIGURED' })
+    const input = JSON.parse((await readBody(request)).toString())
+    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
+    const prompt = `Ты извлекаешь сведения только из пользовательской транскрипции. Не используй внешние знания и RPG lore. Пустой результат допустим. Не объединяй сомнительные сущности. Верни JSON строго по схеме. Каждый объект должен ссылаться на существующие sourceBlockIds и содержать дословный sourceText. Блоки: ${JSON.stringify(input.blocks || [])}. Текст: ${input.text}`
+    const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{ responseMimeType:'application/json', responseSchema:{type:'OBJECT',required:['summary','recap','entities'],properties:{summary:{type:'STRING'},recap:{type:'STRING'},entities:{type:'ARRAY',items:{type:'OBJECT',required:['name','type','description','sourceText','sourceBlockIds','confidence'],properties:{name:{type:'STRING'},type:{type:'STRING',enum:['PLAYER_CHARACTER','NPC','LOCATION','ITEM','EVENT','QUEST','FACTION','IMPORTANT_NOTE','SPELL','MONSTER','DEITY','HISTORICAL_EVENT']},description:{type:'STRING'},sourceText:{type:'STRING'},sourceBlockIds:{type:'ARRAY',items:{type:'STRING'}},confidence:{type:'NUMBER'},visibility:{type:'STRING',enum:['CAMPAIGN','PLAYER_PRIVATE','GM_ONLY']}}}}}} } })
+    })
+    const data = await upstream.json()
+    if (upstream.status === 429) return json(response, 429, { code:'AI_FREE_QUOTA_EXCEEDED' })
+    if (!upstream.ok) return json(response, 502, { code:'AI_ANALYSIS_FAILED', message:data.error?.message })
+    try { return json(response, 200, JSON.parse(data.candidates[0].content.parts[0].text)) }
+    catch { return json(response, 502, { code:'INVALID_AI_RESPONSE' }) }
+  }
   return json(response, 404, { code: 'NOT_FOUND' })
 }
 
