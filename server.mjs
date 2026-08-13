@@ -44,11 +44,12 @@ async function api(request, response) {
     form.append('model', process.env.GROQ_TRANSCRIPTION_MODEL || 'whisper-large-v3')
     form.append('language', String(received.get('language') || 'ru'))
     form.append('response_format', 'verbose_json')
-    const upstream = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    let upstream
+    try { upstream = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method: 'POST',
       headers: { authorization: `Bearer ${process.env.GROQ_API_KEY}`, accept:'application/json' },
       body: form,
-    })
+    }) } catch { return json(response, 502, { code:'TRANSCRIPTION_PROVIDER_UNREACHABLE', message:'Сервер не может подключиться к Groq. Проверьте интернет, proxy/firewall и повторите запрос.' }) }
     let data
     try { data = await readJsonResponse(upstream, 'Groq') }
     catch (error) { return json(response, 502, { code:error.code || 'TRANSCRIPTION_FAILED', message:error.message }) }
@@ -86,7 +87,8 @@ createServer(async (request, response) => {
     let file = join(root, path)
     try { if (!(await stat(file)).isFile()) throw new Error('Not a file') } catch { file = join(root, 'index.html') }
     const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' }[extname(file)] || 'application/octet-stream'
-    response.writeHead(200, { 'content-type': mime })
+    const noCache=file.endsWith('index.html') || file.endsWith('sw.js')
+    response.writeHead(200, { 'content-type': mime, 'cache-control':noCache?'no-store':'public, max-age=31536000, immutable' })
     response.end(await readFile(file))
   } catch (error) {
     json(response, 500, { code: 'SERVER_ERROR', message: String(error) })
