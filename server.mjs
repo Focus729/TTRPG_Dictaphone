@@ -2,6 +2,7 @@ import { createServer } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { resolveGeminiModel } from './server-config.js'
+import { readJsonResponse } from './server-http.js'
 
 const port = Number(process.env.PORT || 3000)
 const root = join(process.cwd(), 'dist')
@@ -45,10 +46,12 @@ async function api(request, response) {
     form.append('response_format', 'verbose_json')
     const upstream = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method: 'POST',
-      headers: { authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+      headers: { authorization: `Bearer ${process.env.GROQ_API_KEY}`, accept:'application/json' },
       body: form,
     })
-    const data = await upstream.json()
+    let data
+    try { data = await readJsonResponse(upstream, 'Groq') }
+    catch (error) { return json(response, 502, { code:error.code || 'TRANSCRIPTION_FAILED', message:error.message }) }
     if (upstream.status === 429) return json(response, 429, { code: 'AI_FREE_QUOTA_EXCEEDED' })
     if (!upstream.ok) return json(response, 502, { code: 'TRANSCRIPTION_FAILED', message: data.error?.message })
     const rawText = data.text || ''
@@ -64,7 +67,9 @@ async function api(request, response) {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{ responseMimeType:'application/json', responseSchema:{type:'OBJECT',required:['summary','recap','entities'],properties:{summary:{type:'STRING'},recap:{type:'STRING'},entities:{type:'ARRAY',items:{type:'OBJECT',required:['name','type','description','sourceText','sourceBlockIds','confidence'],properties:{name:{type:'STRING'},type:{type:'STRING',enum:['PLAYER_CHARACTER','NPC','LOCATION','ITEM','EVENT','QUEST','FACTION','IMPORTANT_NOTE','SPELL','MONSTER','DEITY','HISTORICAL_EVENT']},description:{type:'STRING'},sourceText:{type:'STRING'},sourceBlockIds:{type:'ARRAY',items:{type:'STRING'}},confidence:{type:'NUMBER'},visibility:{type:'STRING',enum:['CAMPAIGN','PLAYER_PRIVATE','GM_ONLY']}}}}}} } })
     })
-    const data = await upstream.json()
+    let data
+    try { data = await readJsonResponse(upstream, 'Gemini') }
+    catch (error) { return json(response, 502, { code:error.code || 'AI_ANALYSIS_FAILED', message:error.message, model }) }
     if (upstream.status === 429) return json(response, 429, { code:'AI_FREE_QUOTA_EXCEEDED' })
     if (!upstream.ok) return json(response, 502, { code:'AI_ANALYSIS_FAILED', message:data.error?.message, model })
     try { return json(response, 200, JSON.parse(data.candidates[0].content.parts[0].text)) }
