@@ -94,5 +94,5 @@ createServer(async (request, response) => {
     json(response, 500, { code: 'SERVER_ERROR', message: String(error) })
   }
 }).listen(port, '0.0.0.0', () => {
-  console.log(`TTRPG Dictaphone running on port ${port}`)
+  console.log(`TTRPG Dictaphone: http://localhost:${port}`)
 })
